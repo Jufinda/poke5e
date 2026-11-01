@@ -32,6 +32,7 @@
             <a href="./items" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-full font-semibold text-xs transition-colors backdrop-blur-sm border border-white/30 flex items-center">Items</a>
             <a href="./rules" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-full font-semibold text-xs transition-colors backdrop-blur-sm border border-white/30 flex items-center">Rules</a>
             <a href="./encounter-tool" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-full font-semibold text-xs transition-colors backdrop-blur-sm border border-white/30 flex items-center">Encounters</a>
+            <a href="./trainers" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-full font-semibold text-xs transition-colors backdrop-blur-sm border border-white/30 flex items-center">Trainer Builder</a>
             
             <button onclick="addTrainer()" id="add-trainer-btn" class="bg-black hover:bg-gray-800 text-white px-4 py-1.5 rounded-full font-semibold text-xs transition-colors shadow flex items-center hidden">
                 + Add Trainer
@@ -280,14 +281,29 @@
             const pokeId = idInput ? idInput.value.trim().toUpperCase() : '';
             if (!pokeId) { alert("Please enter a valid Poké5e Trainer ID!"); return; }
 
-            // Simulation link to official generator format
             try {
-                alert(`Querying Poké5e ID: ${pokeId}\n(Tip: You can use your forked /pokemon or /trainers pages for reference lookup while filling stats!)`);
-                appState[tIndex].pokeId = pokeId;
-                saveData();
-                render();
+                // Fetch direct JSON data exported or structured from your forked backend/repo
+                const response = await fetch(`./api/trainers/${pokeId}.json`).catch(() => null);
+                if (response && response.ok) {
+                    const data = await response.json();
+                    appState[tIndex].name = data.name || appState[tIndex].name;
+                    appState[tIndex].level = data.level || appState[tIndex].level;
+                    appState[tIndex].path = data.path || appState[tIndex].path;
+                    appState[tIndex].hpMax = data.hpMax || appState[tIndex].hpMax;
+                    appState[tIndex].hpCurr = data.hpMax || appState[tIndex].hpCurr;
+                    appState[tIndex].ac = data.ac || appState[tIndex].ac;
+                    appState[tIndex].money = data.money || appState[tIndex].money;
+                    if(data.stats) appState[tIndex].stats = data.stats;
+                    if(data.pokemon) appState[tIndex].pokemon = data.pokemon;
+                    saveData();
+                    render();
+                    alert("Successfully imported official trainer profile from your repo!");
+                } else {
+                    // Fallback to direct routing window lookup on your forked site
+                    window.open(`./trainers?id=${pokeId}`, '_blank');
+                }
             } catch(err) {
-                alert("Could not fetch trainer ID.");
+                window.open(`./trainers?id=${pokeId}`, '_blank');
             }
         }
 
