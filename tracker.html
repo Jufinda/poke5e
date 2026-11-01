@@ -1,13 +1,58 @@
-<!-- ... existing code ... -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poké5e Multi-Trainer Campaign Tracker & Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .pokeball-line { position: relative; height: 12px; background-color: #1a1a1a; width: 100%; margin-bottom: 2rem; }
+        .pokeball-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px; background-color: white; border: 8px solid #1a1a1a; border-radius: 50%; box-shadow: inset 0 0 0 2px white, inset 0 0 0 4px #1a1a1a; }
+        #toast { visibility: hidden; opacity: 0; transition: opacity 0.3s, visibility 0.3s; }
+        #toast.show { visibility: visible; opacity: 1; }
+    </style>
+</head>
+<body class="text-gray-800 pb-20">
+
+    <!-- Header Section -->
+    <header class="bg-red-600 text-white pt-6 pb-4 px-4 text-center relative shadow-md">
+        <h1 class="text-3xl md:text-4xl font-bold tracking-wider uppercase drop-shadow-md">Poké5e Campaign Hub</h1>
+        <p class="text-red-200 mt-1 text-sm font-semibold tracking-widest mb-4">LIVE MULTIPLAYER SESSION & TOOLKIT</p>
+        
+        <div class="flex flex-wrap justify-center gap-3 mt-4">
+            <!-- Navigation linking to your forked Poké5e official pages -->
+            <a href="./pokemon" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-full font-semibold text-xs transition-colors backdrop-blur-sm border border-white/30 flex items-center">Pokédex</a>
+            <a href="./moves" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-full font-semibold text-xs transition-colors backdrop-blur-sm border border-white/30 flex items-center">Moves</a>
+            <a href="./items" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-full font-semibold text-xs transition-colors backdrop-blur-sm border border-white/30 flex items-center">Items</a>
+            <a href="./rules" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-full font-semibold text-xs transition-colors backdrop-blur-sm border border-white/30 flex items-center">Rules</a>
+            <a href="./encounter-tool" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-full font-semibold text-xs transition-colors backdrop-blur-sm border border-white/30 flex items-center">Encounters</a>
+            
+            <button onclick="addTrainer()" id="add-trainer-btn" class="bg-black hover:bg-gray-800 text-white px-4 py-1.5 rounded-full font-semibold text-xs transition-colors shadow flex items-center hidden">
+                + Add Trainer
+            </button>
+            <button onclick="confirmClear()" id="reset-btn" class="bg-red-700 hover:bg-red-800 text-white px-4 py-1.5 rounded-full font-semibold text-xs transition-colors shadow border border-red-900 flex items-center hidden">
+                Reset
+            </button>
+        </div>
     </header>
     <div class="pokeball-line shadow-sm"><div class="pokeball-center shadow-sm"></div></div>
 
-    <!-- LOBBY UI (NEW) -->
+    <!-- LOBBY UI -->
     <div id="lobby-screen" class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8 text-center border-t-8 border-red-600 mt-10">
         <h2 class="text-2xl font-bold mb-6 text-gray-900">Multiplayer Lobby</h2>
         <div class="space-y-4">
+            <div class="mb-2 text-left">
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Your Name / Role</label>
+                <input type="text" id="player-name" placeholder="Game Master (DM) or Trainer Name" class="w-full border-2 border-gray-300 rounded-lg p-3 font-bold text-lg focus:border-blue-500 focus:outline-none">
+            </div>
             <button onclick="hostGame()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg shadow transition">
-                👑 Host New Game
+                👑 Host Game (Game Master Control)
             </button>
             <div class="relative flex py-2 items-center">
                 <div class="flex-grow border-t border-gray-300"></div>
@@ -17,7 +62,7 @@
             <div class="flex space-x-2">
                 <input type="text" id="join-code" placeholder="4-LETTER CODE" class="flex-1 border-2 border-gray-300 rounded-lg p-3 text-center uppercase font-bold text-xl focus:border-blue-500 focus:outline-none" maxlength="4">
                 <button onclick="joinGameBtn()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow transition">
-                    Join
+                    Join Player
                 </button>
             </div>
         </div>
@@ -27,27 +72,78 @@
     <!-- Active Game Header -->
     <div id="active-game-header" class="max-w-7xl mx-auto px-4 text-center mb-6 hidden">
         <div class="inline-block bg-blue-100 border-2 border-blue-300 text-blue-800 font-bold px-6 py-2 rounded-full text-lg shadow-sm">
-            Room Code: <span id="display-room-code" class="tracking-widest text-xl"></span>
+            Room Code: <span id="display-room-code" class="tracking-widest text-xl"></span> | Role: <span id="display-role" class="text-red-600"></span>
         </div>
     </div>
 
     <main id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 hidden">
         
-        <!-- Dice Roller Panel -->
+        <!-- Game Log, Players & Dice Roller Panel -->
         <section class="bg-white rounded-2xl shadow-lg border border-gray-200 p-4 border-l-8 border-l-blue-500">
             <h2 class="text-xl font-bold text-gray-900 mb-3 flex items-center">
-<!-- ... existing code ... -->
+                🎲 Session Log & Dice Roller
+            </h2>
+            <div class="flex flex-col md:flex-row gap-4">
+                <!-- Dice Controls -->
+                <div class="md:w-1/3">
+                    <div class="flex items-center gap-2 mb-3 bg-gray-50 p-2 rounded-lg border border-gray-200">
+                        <label class="font-bold text-sm text-gray-600">Mod (+/-):</label>
+                        <input type="number" id="dice-mod" value="0" class="w-16 border border-gray-300 rounded p-1 text-center font-bold focus:border-blue-500 focus:outline-none">
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="rollDice(4)" class="bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold py-2 rounded shadow-sm border border-blue-200 transition-colors">d4</button>
+                        <button onclick="rollDice(6)" class="bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold py-2 rounded shadow-sm border border-blue-200 transition-colors">d6</button>
+                        <button onclick="rollDice(8)" class="bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold py-2 rounded shadow-sm border border-blue-200 transition-colors">d8</button>
+                        <button onclick="rollDice(10)" class="bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold py-2 rounded shadow-sm border border-blue-200 transition-colors">d10</button>
+                        <button onclick="rollDice(12)" class="bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold py-2 rounded shadow-sm border border-blue-200 transition-colors">d12</button>
+                        <button onclick="rollDice(20)" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded shadow-sm transition-colors">d20</button>
+                    </div>
+                </div>
+                
+                <!-- Game Log -->
+                <div class="flex-1 bg-gray-50 rounded-xl border border-gray-200 p-3 h-36 flex flex-col relative">
+                    <h3 class="text-xs font-bold text-gray-500 uppercase mb-2">Game Log</h3>
+                    <ul id="dice-log" class="flex-1 overflow-y-auto text-sm space-y-1 font-mono">
+                        <li class="text-gray-400 italic">Rolls and events will appear here...</li>
+                    </ul>
+                </div>
+
+                <!-- Live Players -->
+                <div class="md:w-1/4 bg-gray-50 rounded-xl border border-gray-200 p-3 h-36 flex flex-col">
+                    <h3 class="text-xs font-bold text-gray-500 uppercase mb-2">Active Participants</h3>
+                    <ul id="live-players-list" class="flex-1 overflow-y-auto text-sm space-y-2 font-semibold text-gray-700"></ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Dynamic App Container -->
+        <div id="app"></div>
+    </main>
+
+    <!-- Modal Confirm Clear -->
+    <div id="modal-backdrop" class="fixed inset-0 bg-black bg-opacity-60 z-40 hidden flex items-center justify-center backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl transform transition-all border-t-8 border-red-600">
+            <h3 class="text-xl font-bold text-gray-900 mb-2">Wipe All Data?</h3>
+            <p class="text-gray-600 mb-6">This will permanently delete all trainers and Pokémon from this session.</p>
+            <div class="flex justify-end space-x-3">
+                <button onclick="closeModal()" class="px-4 py-2 rounded-lg font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">Cancel</button>
+                <button onclick="executeClear()" class="px-4 py-2 rounded-lg font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors">Wipe Board</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification -->
     <div id="toast" class="fixed bottom-6 right-6 bg-gray-900/90 backdrop-blur text-white px-6 py-3 rounded-full shadow-xl flex items-center space-x-2 z-50">
         <span>💾</span>
-        <span class="font-semibold text-sm">Saved Live</span>
+        <span class="font-semibold text-sm">Synced Live</span>
     </div>
 
+    <!-- FIREBASE AND APP LOGIC -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // === 1. PASTE YOUR FIREBASE CONFIG HERE ===
+        // === YOUR FIREBASE CONFIG ===
         const firebaseConfig = {
             apiKey: "AIzaSyCxpXcK4Hzu9lJs-xIYSBSvKrEfVqLJ9wQ",
             authDomain: "poke5e-tracker.firebaseapp.com",
@@ -57,44 +153,72 @@
             appId: "1:193075553454:web:0ab05cb9054007787db93f",
             measurementId: "G-5QTK60CEZ9"
         };
-        // ==========================================
-
+        
         let app, db;
         try {
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
         } catch(e) {
-            console.warn("Firebase config missing or invalid.");
+            console.warn("Firebase init failed.");
         }
 
         let appState = [];
         let diceLog = [];
+        let sessionPlayers = [];
         let autoSaveTimeout = null;
         let currentRoomCode = null;
-        let isSyncing = false; // Prevent feedback loops
+        let isSyncing = false; 
+        let localPlayerName = "Traveler"; 
+        let isGameMaster = false; // Controls editing permissions
 
         const statusConditions = ["Normal", "Burned", "Paralyzed", "Poisoned", "Asleep", "Frozen", "Confused", "Flinch", "Badly Poisoned", "Fainted"];
 
-        // --- Multiplayer Lobby System ---
+        setTimeout(() => {
+            const savedName = localStorage.getItem('poke5e_player_name');
+            if (savedName) {
+                const nameInput = document.getElementById('player-name');
+                if (nameInput) nameInput.value = savedName;
+            }
+        }, 100);
+
+        function savePlayerName() {
+            const nameInput = document.getElementById('player-name');
+            if (nameInput && nameInput.value.trim() !== '') {
+                localPlayerName = nameInput.value.trim();
+                localStorage.setItem('poke5e_player_name', localPlayerName);
+            }
+        }
+
         window.hostGame = async function() {
-            if (!db || !firebaseConfig.apiKey) { alert("Please paste your firebaseConfig in the code first!"); return; }
-            
-            // Generate 4 letter code
+            if (!db) { alert("Database connection not ready."); return; }
+            savePlayerName();
+            isGameMaster = true;
             const code = Math.random().toString(36).substring(2, 6).toUpperCase();
             
-            // Initialize empty room
-            await setDoc(doc(db, "rooms", code), { trainers: [], diceLog: [] });
-            
-            joinRoom(code);
+            try {
+                const initialLog = [`<span class="text-red-600 font-bold">👑 ${localPlayerName} started the session as Game Master!</span>`];
+                await setDoc(doc(db, "rooms", code), { 
+                    trainers: [], 
+                    diceLog: initialLog,
+                    players: [`👑 ${localPlayerName} (GM)`]
+                });
+                joinRoom(code, true);
+            } catch(e) {
+                const errorEl = document.getElementById('lobby-error');
+                errorEl.innerText = "Error: " + e.message;
+                errorEl.classList.remove('hidden');
+            }
         }
 
         window.joinGameBtn = function() {
+            savePlayerName();
+            isGameMaster = false;
             const code = document.getElementById('join-code').value.toUpperCase();
-            if (code.length === 4) joinRoom(code);
+            if (code.length === 4) joinRoom(code, false);
         }
 
-        async function joinRoom(code) {
-            if (!db || !firebaseConfig.apiKey) { alert("Please paste your firebaseConfig in the code first!"); return; }
+        async function joinRoom(code, isHosting = false) {
+            if (!db) return;
             const errorEl = document.getElementById('lobby-error');
             
             try {
@@ -107,34 +231,73 @@
                     document.getElementById('active-game-header').classList.remove('hidden');
                     document.getElementById('main-content').classList.remove('hidden');
                     document.getElementById('display-room-code').innerText = code;
+                    document.getElementById('display-role').innerText = isGameMaster ? "Game Master (Host)" : "Player (Read-Only)";
                     
-                    // Listen for live updates
+                    if (isGameMaster) {
+                        document.getElementById('add-trainer-btn').classList.remove('hidden');
+                        document.getElementById('reset-btn').classList.remove('hidden');
+                    }
+
+                    appState = roomSnap.data().trainers || [];
+                    diceLog = roomSnap.data().diceLog || [];
+                    sessionPlayers = roomSnap.data().players || [];
+                    
+                    const playerTag = isGameMaster ? `👑 ${localPlayerName} (GM)` : `🛡️ ${localPlayerName}`;
+                    if (!sessionPlayers.includes(playerTag)) {
+                        sessionPlayers.push(playerTag);
+                        diceLog.push(`<span class="text-blue-600 font-bold">👋 ${localPlayerName} joined the room!</span>`);
+                        if(diceLog.length > 30) diceLog.shift();
+                        saveData(true);
+                    }
+                    
                     onSnapshot(roomRef, (snapshot) => {
                         if (snapshot.exists()) {
                             isSyncing = true;
                             appState = snapshot.data().trainers || [];
                             diceLog = snapshot.data().diceLog || [];
+                            sessionPlayers = snapshot.data().players || [];
                             render();
                             renderDiceLog();
+                            renderPlayers();
                             setTimeout(() => isSyncing = false, 100);
                         }
                     });
                     
-                    setupEventListeners(); // Start listening to inputs once in a game
+                    setupEventListeners();
                 } else {
                     errorEl.innerText = "Room not found!";
                     errorEl.classList.remove('hidden');
                 }
             } catch(e) {
-                console.error(e);
-                errorEl.innerText = "Database error. Make sure Firestore is in Test Mode.";
+                errorEl.innerText = "Database connection error.";
                 errorEl.classList.remove('hidden');
             }
         }
 
+        window.fetchPoke5eTrainer = async function(tIndex) {
+            if (!isGameMaster) return;
+            const idInput = document.getElementById(`poke-id-${tIndex}`);
+            const pokeId = idInput ? idInput.value.trim().toUpperCase() : '';
+            if (!pokeId) { alert("Please enter a valid Poké5e Trainer ID!"); return; }
+
+            // Simulation link to official generator format
+            try {
+                alert(`Querying Poké5e ID: ${pokeId}\n(Tip: You can use your forked /pokemon or /trainers pages for reference lookup while filling stats!)`);
+                appState[tIndex].pokeId = pokeId;
+                saveData();
+                render();
+            } catch(err) {
+                alert("Could not fetch trainer ID.");
+            }
+        }
+
         function saveData(silent = false) {
-            if (!currentRoomCode || isSyncing) return; // Only save if we made the change
-            setDoc(doc(db, "rooms", currentRoomCode), { trainers: appState, diceLog: diceLog });
+            if (!currentRoomCode || isSyncing || !isGameMaster) return;
+            setDoc(doc(db, "rooms", currentRoomCode), { 
+                trainers: appState, 
+                diceLog: diceLog,
+                players: sessionPlayers 
+            });
             if (!silent) displayToast();
         }
 
@@ -143,11 +306,10 @@
             autoSaveTimeout = setTimeout(() => saveData(true), 600);
         }
 
-        // --- Data Models ---
         function getNewTrainer() {
             return {
                 id: 't_' + Math.random().toString(36).substr(2, 9),
-                name: '', level: 1, path: '', hpCurr: 10, hpMax: 10, ac: 10, money: 0,
+                name: '', pokeId: '', level: 1, path: '', hpCurr: 10, hpMax: 10, ac: 10, money: 0,
                 stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
                 inventory: '',
                 pokemon: []
@@ -160,20 +322,18 @@
                 species: '', level: 1, hpCurr: 10, hpMax: 10, ac: 10, bond: 1, status: 'Normal',
                 moves: [
                     { name: '', ppCurr: 0, ppMax: 0 },
-                    { name: '', ppCurr: 0, ppMax: 0 },
-                    { name: '', ppCurr: 0, ppMax: 0 },
                     { name: '', ppCurr: 0, ppMax: 0 }
                 ]
             };
         }
 
-        // --- Actions (Exported to Window) ---
-        window.addTrainer = function() { appState.push(getNewTrainer()); saveData(true); render(); }
-        window.removeTrainer = function(tIndex) { appState.splice(tIndex, 1); saveData(true); render(); }
-        window.addPokemon = function(tIndex) { appState[tIndex].pokemon.push(getNewPokemon()); saveData(true); render(); }
-        window.removePokemon = function(tIndex, pIndex) { appState[tIndex].pokemon.splice(pIndex, 1); saveData(true); render(); }
+        window.addTrainer = function() { if (!isGameMaster) return; appState.push(getNewTrainer()); saveData(true); render(); }
+        window.removeTrainer = function(tIndex) { if (!isGameMaster) return; appState.splice(tIndex, 1); saveData(true); render(); }
+        window.addPokemon = function(tIndex) { if (!isGameMaster) return; appState[tIndex].pokemon.push(getNewPokemon()); saveData(true); render(); }
+        window.removePokemon = function(tIndex, pIndex) { if (!isGameMaster) return; appState[tIndex].pokemon.splice(pIndex, 1); saveData(true); render(); }
 
         window.adjustHP = function(tIndex, pIndex, amount) {
+            if (!isGameMaster) return;
             if (pIndex === null) {
                 appState[tIndex].hpCurr = Math.max(0, (parseInt(appState[tIndex].hpCurr) || 0) + amount);
                 document.getElementById(`t-${tIndex}-hp`).value = appState[tIndex].hpCurr;
@@ -185,13 +345,13 @@
         }
 
         window.adjustPP = function(tIndex, pIndex, mIndex, amount) {
+            if (!isGameMaster) return;
             let curr = parseInt(appState[tIndex].pokemon[pIndex].moves[mIndex].ppCurr) || 0;
             appState[tIndex].pokemon[pIndex].moves[mIndex].ppCurr = Math.max(0, curr + amount);
             document.getElementById(`pp-${tIndex}-${pIndex}-${mIndex}`).value = appState[tIndex].pokemon[pIndex].moves[mIndex].ppCurr;
             debouncedSave();
         }
 
-        // --- Dice Roller ---
         window.rollDice = function(sides) {
             const modInput = document.getElementById('dice-mod');
             const mod = parseInt(modInput.value) || 0;
@@ -199,30 +359,45 @@
             const total = roll + mod;
             
             const modString = mod === 0 ? '' : (mod > 0 ? ` + ${mod}` : ` - ${Math.abs(mod)}`);
-            const entry = `<span class="text-blue-600 font-bold">[d${sides}]</span> Rolled ${roll}${modString} = <span class="font-bold text-gray-900">${total}</span>`;
+            const entry = `<span class="text-gray-900 font-bold">${localPlayerName}</span>: <span class="text-blue-600 font-bold">[d${sides}]</span> Rolled ${roll}${modString} = <span class="font-bold text-gray-900">${total}</span>`;
             
             diceLog.push(entry);
-            if(diceLog.length > 20) diceLog.shift();
-            saveData(true);
-        }
-
-        window.clearDiceLog = function() {
-            diceLog = [];
-            saveData(true);
+            if(diceLog.length > 30) diceLog.shift();
+            
+            if (isGameMaster) {
+                saveData(true);
+            } else if (db && currentRoomCode) {
+                // Players can push dice rolls to shared log
+                setDoc(doc(db, "rooms", currentRoomCode), { trainers: appState, diceLog: diceLog, players: sessionPlayers }, { merge: true });
+            }
         }
 
         function renderDiceLog() {
             const logEl = document.getElementById('dice-log');
             if (diceLog.length === 0) {
-                logEl.innerHTML = '<li class="text-gray-400 italic">Roll history will appear here...</li>';
+                logEl.innerHTML = '<li class="text-gray-400 italic">Rolls and events will appear here...</li>';
                 return;
             }
             logEl.innerHTML = diceLog.map(log => `<li>${log}</li>`).reverse().join('');
         }
 
-        // --- Event Delegation for Inputs ---
+        function renderPlayers() {
+            const listEl = document.getElementById('live-players-list');
+            if (!listEl) return;
+            listEl.innerHTML = sessionPlayers.map(p => `
+                <li class="flex items-center gap-2">
+                    <span class="relative flex h-3 w-3">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                    </span>
+                    ${p}
+                </li>
+            `).join('');
+        }
+
         function setupEventListeners() {
             document.getElementById('app').addEventListener('change', (e) => {
+                if (!isGameMaster) return;
                 const target = e.target;
                 if (!target.dataset.field) return;
 
@@ -242,16 +417,12 @@
             });
         }
 
-        // --- Rendering ---
         function render() {
-            const activeElement = document.activeElement;
-            const activeId = activeElement ? activeElement.id : null;
-
             const app = document.getElementById('app');
             app.innerHTML = '';
             
             if (appState.length === 0) {
-                app.innerHTML = `<div class="text-center text-gray-500 py-12">No trainers. Click "+ Add Trainer" to start.</div>`;
+                app.innerHTML = `<div class="text-center text-gray-500 py-12">No trainers on board. ${isGameMaster ? 'Click "+ Add Trainer" above.' : 'Waiting for Game Master to add sheets.'}</div>`;
                 return;
             }
 
@@ -266,60 +437,56 @@
 
                     let movesHtml = poke.moves.map((move, mIndex) => `
                         <div class="flex items-center gap-1 mb-1">
-                            <input type="text" id="m-n-${tIndex}-${pIndex}-${mIndex}" data-tindex="${tIndex}" data-pindex="${pIndex}" data-mindex="${mIndex}" data-field="name" value="${move.name}" placeholder="Move ${mIndex+1}" class="flex-1 border border-gray-300 rounded p-1 text-xs focus:border-red-500 focus:outline-none">
-                            <button onclick="adjustPP(${tIndex}, ${pIndex}, ${mIndex}, -1)" class="bg-gray-200 hover:bg-gray-300 w-5 h-5 rounded text-xs font-bold">-</button>
-                            <input type="number" id="pp-${tIndex}-${pIndex}-${mIndex}" data-tindex="${tIndex}" data-pindex="${pIndex}" data-mindex="${mIndex}" data-field="ppCurr" value="${move.ppCurr}" class="w-8 text-center border border-gray-300 rounded p-1 text-xs focus:outline-none">
+                            <input type="text" ${!isGameMaster ? 'disabled' : ''} data-tindex="${tIndex}" data-pindex="${pIndex}" data-mindex="${mIndex}" data-field="name" value="${move.name}" placeholder="Move name" class="flex-1 border border-gray-300 rounded p-1 text-xs">
+                            <button ${!isGameMaster ? 'disabled' : ''} onclick="adjustPP(${tIndex}, ${pIndex}, ${mIndex}, -1)" class="bg-gray-200 w-5 h-5 rounded text-xs font-bold">-</button>
+                            <input type="number" ${!isGameMaster ? 'disabled' : ''} data-tindex="${tIndex}" data-pindex="${pIndex}" data-mindex="${mIndex}" data-field="ppCurr" value="${move.ppCurr}" class="w-8 text-center border border-gray-300 rounded p-1 text-xs">
                             <span class="text-xs text-gray-500">/</span>
-                            <input type="number" id="ppm-${tIndex}-${pIndex}-${mIndex}" data-tindex="${tIndex}" data-pindex="${pIndex}" data-mindex="${mIndex}" data-field="ppMax" value="${move.ppMax}" class="w-8 text-center border border-gray-300 rounded p-1 text-xs text-gray-500 focus:outline-none">
-                            <button onclick="adjustPP(${tIndex}, ${pIndex}, ${mIndex}, 1)" class="bg-gray-200 hover:bg-gray-300 w-5 h-5 rounded text-xs font-bold">+</button>
+                            <input type="number" ${!isGameMaster ? 'disabled' : ''} data-tindex="${tIndex}" data-pindex="${pIndex}" data-mindex="${mIndex}" data-field="ppMax" value="${move.ppMax}" class="w-8 text-center border border-gray-300 rounded p-1 text-xs text-gray-500">
+                            <button ${!isGameMaster ? 'disabled' : ''} onclick="adjustPP(${tIndex}, ${pIndex}, ${mIndex}, 1)" class="bg-gray-200 w-5 h-5 rounded text-xs font-bold">+</button>
                         </div>
                     `).join('');
 
                     return `
                     <div class="bg-gray-50 rounded-xl border border-gray-200 p-3 relative">
-                        <button onclick="removePokemon(${tIndex}, ${pIndex})" class="absolute top-2 right-2 text-gray-400 hover:text-red-500 transition-colors" title="Remove Pokémon">✖</button>
-                        
+                        ${isGameMaster ? `<button onclick="removePokemon(${tIndex}, ${pIndex})" class="absolute top-2 right-2 text-gray-400 hover:text-red-500">✖</button>` : ''}
                         <div class="grid grid-cols-2 gap-2 mb-2 pr-6">
                             <div>
-                                <label class="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">Species/Nick</label>
-                                <input type="text" id="p-s-${tIndex}-${pIndex}" data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="species" value="${poke.species}" placeholder="Pikachu" class="w-full border border-gray-300 rounded p-1 text-sm focus:border-red-500 focus:outline-none">
+                                <label class="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">Species / Nick</label>
+                                <input type="text" ${!isGameMaster ? 'disabled' : ''} data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="species" value="${poke.species}" placeholder="Pikachu" class="w-full border border-gray-300 rounded p-1 text-sm">
                             </div>
                             <div class="flex gap-2">
                                 <div class="w-1/2">
                                     <label class="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">Lvl</label>
-                                    <input type="number" id="p-l-${tIndex}-${pIndex}" data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="level" value="${poke.level}" class="w-full border border-gray-300 rounded p-1 text-sm text-center focus:border-red-500 focus:outline-none">
+                                    <input type="number" ${!isGameMaster ? 'disabled' : ''} data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="level" value="${poke.level}" class="w-full border border-gray-300 rounded p-1 text-sm text-center">
                                 </div>
                                 <div class="w-1/2">
                                     <label class="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">Bond</label>
-                                    <input type="number" id="p-b-${tIndex}-${pIndex}" data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="bond" value="${poke.bond}" class="w-full border border-gray-300 rounded p-1 text-sm text-center focus:border-red-500 focus:outline-none">
+                                    <input type="number" ${!isGameMaster ? 'disabled' : ''} data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="bond" value="${poke.bond}" class="w-full border border-gray-300 rounded p-1 text-sm text-center">
                                 </div>
                             </div>
                         </div>
-
                         <div class="grid grid-cols-3 gap-2 mb-2">
                             <div class="col-span-2">
                                 <label class="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">HP</label>
                                 <div class="flex items-center space-x-1">
-                                    <button onclick="adjustHP(${tIndex}, ${pIndex}, -1)" class="bg-red-100 text-red-700 hover:bg-red-200 w-6 h-6 rounded text-sm font-bold flex items-center justify-center">-</button>
-                                    <input type="number" id="p-${tIndex}-${pIndex}-hp" data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="hpCurr" value="${poke.hpCurr}" class="w-12 text-center border border-gray-300 rounded p-1 text-sm font-bold focus:outline-none">
-                                    <span class="text-gray-400 font-bold text-xs">/</span>
-                                    <input type="number" id="p-${tIndex}-${pIndex}-hpm" data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="hpMax" value="${poke.hpMax}" class="w-12 text-center border border-gray-300 rounded p-1 text-sm text-gray-500 focus:outline-none">
-                                    <button onclick="adjustHP(${tIndex}, ${pIndex}, 1)" class="bg-green-100 text-green-700 hover:bg-green-200 w-6 h-6 rounded text-sm font-bold flex items-center justify-center">+</button>
+                                    ${isGameMaster ? `<button onclick="adjustHP(${tIndex}, ${pIndex}, -1)" class="bg-red-100 text-red-700 w-6 h-6 rounded text-sm font-bold">-</button>` : ''}
+                                    <input type="number" ${!isGameMaster ? 'disabled' : ''} data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="hpCurr" value="${poke.hpCurr}" class="w-12 text-center border border-gray-300 rounded p-1 text-sm font-bold">
+                                    <span class="text-gray-400 text-xs">/</span>
+                                    <input type="number" ${!isGameMaster ? 'disabled' : ''} data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="hpMax" value="${poke.hpMax}" class="w-12 text-center border border-gray-300 rounded p-1 text-sm text-gray-500">
+                                    ${isGameMaster ? `<button onclick="adjustHP(${tIndex}, ${pIndex}, 1)" class="bg-green-100 text-green-700 w-6 h-6 rounded text-sm font-bold">+</button>` : ''}
                                 </div>
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">AC</label>
-                                <input type="number" id="p-a-${tIndex}-${pIndex}" data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="ac" value="${poke.ac}" class="w-full border border-gray-300 rounded p-1 text-sm text-center focus:outline-none">
+                                <input type="number" ${!isGameMaster ? 'disabled' : ''} data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="ac" value="${poke.ac}" class="w-full border border-gray-300 rounded p-1 text-sm text-center">
                             </div>
                         </div>
-                        
                         <div class="mb-3">
                             <label class="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">Status</label>
-                            <select id="p-st-${tIndex}-${pIndex}" data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="status" class="w-full border border-gray-300 rounded p-1 text-sm focus:border-red-500 focus:outline-none bg-white">
+                            <select ${!isGameMaster ? 'disabled' : ''} data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="status" class="w-full border border-gray-300 rounded p-1 text-sm bg-white">
                                 ${statusOptions}
                             </select>
                         </div>
-
                         <div>
                             <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Moves & PP</label>
                             ${movesHtml}
@@ -329,33 +496,41 @@
 
                 trainerEl.innerHTML = `
                     <div class="bg-gray-800 text-white px-6 py-3 flex justify-between items-center border-t-8 border-t-red-600">
-                        <div class="flex items-center space-x-2">
-                            <span class="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">TRAINER</span>
-                        </div>
-                        <button onclick="removeTrainer(${tIndex})" class="text-gray-400 hover:text-red-400 text-sm font-semibold transition-colors">✖ Remove Trainer</button>
+                        <span class="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">TRAINER</span>
+                        ${isGameMaster ? `<button onclick="removeTrainer(${tIndex})" class="text-gray-400 hover:text-red-400 text-sm font-semibold">✖ Remove Trainer</button>` : ''}
                     </div>
                     
                     <div class="p-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
                         <div class="lg:col-span-5 space-y-4">
+                            <!-- Poké5e ID Integration Field -->
+                            <div class="bg-blue-50 border border-blue-200 p-3 rounded-lg">
+                                <label class="block text-xs font-bold text-blue-800 uppercase tracking-wide mb-1">Poké5e Official Trainer ID</label>
+                                <div class="flex gap-2">
+                                    <input type="text" id="poke-id-${tIndex}" value="${trainer.pokeId || ''}" placeholder="e.g. RMC0E9Z837KX" class="flex-1 border border-blue-300 rounded p-1 text-sm font-mono uppercase bg-white">
+                                    ${isGameMaster ? `<button onclick="fetchPoke5eTrainer(${tIndex})" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-bold">🔍 Load</button>` : ''}
+                                </div>
+                                <p class="text-[10px] text-blue-600 mt-1">Check your forked <a href="./trainers" target="_blank" class="underline font-semibold">/trainers</a> page to generate and find IDs.</p>
+                            </div>
+
                             <div class="flex gap-4">
                                 <div class="flex-1">
                                     <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Trainer Name</label>
-                                    <input type="text" id="t-n-${tIndex}" data-tindex="${tIndex}" data-field="name" value="${trainer.name}" class="w-full border-2 border-gray-200 rounded-lg p-2 font-semibold text-lg focus:border-red-500 focus:outline-none" placeholder="Red">
+                                    <input type="text" ${!isGameMaster ? 'disabled' : ''} data-tindex="${tIndex}" data-field="name" value="${trainer.name}" class="w-full border-2 border-gray-200 rounded-lg p-2 font-semibold text-lg" placeholder="Red">
                                 </div>
                                 <div class="w-24">
                                     <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Level</label>
-                                    <input type="number" id="t-l-${tIndex}" data-tindex="${tIndex}" data-field="level" value="${trainer.level}" class="w-full border-2 border-gray-200 rounded-lg p-2 text-center focus:border-red-500 focus:outline-none">
+                                    <input type="number" ${!isGameMaster ? 'disabled' : ''} data-tindex="${tIndex}" data-field="level" value="${trainer.level}" class="w-full border-2 border-gray-200 rounded-lg p-2 text-center">
                                 </div>
                             </div>
                             
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Path/Class</label>
-                                    <input type="text" id="t-p-${tIndex}" data-tindex="${tIndex}" data-field="path" value="${trainer.path}" class="w-full border-2 border-gray-200 rounded-lg p-2 focus:border-red-500 focus:outline-none" placeholder="Ace Trainer">
+                                    <input type="text" ${!isGameMaster ? 'disabled' : ''} data-tindex="${tIndex}" data-field="path" value="${trainer.path}" class="w-full border-2 border-gray-200 rounded-lg p-2" placeholder="Ace Trainer">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Poké Dollars (₽)</label>
-                                    <input type="number" id="t-m-${tIndex}" data-tindex="${tIndex}" data-field="money" value="${trainer.money}" class="w-full border-2 border-gray-200 rounded-lg p-2 focus:border-red-500 focus:outline-none">
+                                    <input type="number" ${!isGameMaster ? 'disabled' : ''} data-tindex="${tIndex}" data-field="money" value="${trainer.money}" class="w-full border-2 border-gray-200 rounded-lg p-2">
                                 </div>
                             </div>
 
@@ -363,69 +538,51 @@
                                 <div>
                                     <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Trainer HP</label>
                                     <div class="flex items-center space-x-1">
-                                        <button onclick="adjustHP(${tIndex}, null, -1)" class="bg-red-100 text-red-700 hover:bg-red-200 w-8 h-8 rounded-lg font-bold flex items-center justify-center">-</button>
-                                        <input type="number" id="t-${tIndex}-hp" data-tindex="${tIndex}" data-field="hpCurr" value="${trainer.hpCurr}" class="w-14 text-center border-2 border-gray-200 rounded-lg p-1.5 font-bold focus:outline-none">
+                                        ${isGameMaster ? `<button onclick="adjustHP(${tIndex}, null, -1)" class="bg-red-100 text-red-700 w-8 h-8 rounded-lg font-bold">-</button>` : ''}
+                                        <input type="number" ${!isGameMaster ? 'disabled' : ''} id="t-${tIndex}-hp" data-tindex="${tIndex}" data-field="hpCurr" value="${trainer.hpCurr}" class="w-14 text-center border-2 border-gray-200 rounded-lg p-1.5 font-bold">
                                         <span class="text-gray-400 font-bold">/</span>
-                                        <input type="number" id="t-${tIndex}-hpm" data-tindex="${tIndex}" data-field="hpMax" value="${trainer.hpMax}" class="w-14 text-center border-2 border-gray-200 rounded-lg p-1.5 text-gray-500 focus:outline-none">
-                                        <button onclick="adjustHP(${tIndex}, null, 1)" class="bg-green-100 text-green-700 hover:bg-green-200 w-8 h-8 rounded-lg font-bold flex items-center justify-center">+</button>
+                                        <input type="number" ${!isGameMaster ? 'disabled' : ''} data-tindex="${tIndex}" data-field="hpMax" value="${trainer.hpMax}" class="w-14 text-center border-2 border-gray-200 rounded-lg p-1.5 text-gray-500">
+                                        ${isGameMaster ? `<button onclick="adjustHP(${tIndex}, null, 1)" class="bg-green-100 text-green-700 w-8 h-8 rounded-lg font-bold">+</button>` : ''}
                                     </div>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Armor Class</label>
-                                    <input type="number" id="t-a-${tIndex}" data-tindex="${tIndex}" data-field="ac" value="${trainer.ac}" class="w-20 border-2 border-gray-200 rounded-lg p-1.5 text-center focus:outline-none">
+                                    <input type="number" ${!isGameMaster ? 'disabled' : ''} data-tindex="${tIndex}" data-field="ac" value="${trainer.ac}" class="w-20 border-2 border-gray-200 rounded-lg p-1.5 text-center">
                                 </div>
                             </div>
 
-                            <!-- Ability Scores -->
                             <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
                                 <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 text-center">Ability Scores</label>
                                 <div class="grid grid-cols-6 gap-2">
                                     ${['str', 'dex', 'con', 'int', 'wis', 'cha'].map(stat => `
                                         <div class="text-center">
                                             <label class="block text-[10px] font-bold text-gray-600 uppercase">${stat}</label>
-                                            <input type="number" id="t-st-${tIndex}-${stat}" data-tindex="${tIndex}" data-type="stat" data-field="${stat}" value="${trainer.stats[stat]}" class="w-full border border-gray-300 rounded p-1 text-center text-sm font-semibold focus:border-red-500 focus:outline-none">
+                                            <input type="number" ${!isGameMaster ? 'disabled' : ''} data-tindex="${tIndex}" data-type="stat" data-field="${stat}" value="${trainer.stats[stat]}" class="w-full border border-gray-300 rounded p-1 text-center text-sm font-semibold">
                                         </div>
                                     `).join('')}
                                 </div>
                             </div>
 
                             <div>
-                                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Inventory / Notes</label>
-                                <textarea id="t-inv-${tIndex}" data-tindex="${tIndex}" data-field="inventory" class="w-full h-32 border-2 border-gray-200 rounded-lg p-2 focus:border-red-500 focus:outline-none resize-none text-sm">${trainer.inventory}</textarea>
+                                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Inventory</label>
+                                <textarea ${!isGameMaster ? 'disabled' : ''} data-tindex="${tIndex}" data-field="inventory" class="w-full h-24 border-2 border-gray-200 rounded-lg p-2 resize-none text-sm">${trainer.inventory}</textarea>
                             </div>
                         </div>
 
                         <div class="lg:col-span-7 bg-gray-100 rounded-xl p-4 border border-gray-200">
                             <div class="flex justify-between items-center mb-4">
-                                <h3 class="text-lg font-bold text-gray-800 flex items-center">
-                                    Pokémon Party (${trainer.pokemon.length}/6)
-                                </h3>
-                                ${trainer.pokemon.length < 6 ? `
-                                <button onclick="addPokemon(${tIndex})" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors shadow-sm">
-                                    + Add Pokémon
-                                </button>
-                                ` : `<span class="text-xs font-bold text-red-500 uppercase bg-red-100 px-2 py-1 rounded">Party Full</span>`}
+                                <h3 class="text-lg font-bold text-gray-800">Pokémon Party (${trainer.pokemon.length}/6)</h3>
+                                ${isGameMaster && trainer.pokemon.length < 6 ? `<button onclick="addPokemon(${tIndex})" class="bg-white border border-gray-300 px-3 py-1.5 rounded-lg text-sm font-semibold shadow-sm">+ Add Pokémon</button>` : ''}
                             </div>
-                            
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 ${pokemonHtml}
-                                ${trainer.pokemon.length === 0 ? `<div class="col-span-full text-center text-gray-400 py-6 italic text-sm">No Pokémon in party. Add one to get started!</div>` : ''}
+                                ${trainer.pokemon.length === 0 ? `<div class="col-span-full text-center text-gray-400 py-6 italic text-sm">No Pokémon added.</div>` : ''}
                             </div>
                         </div>
                     </div>
                 `;
                 app.appendChild(trainerEl);
             });
-
-            if (activeId) {
-                const el = document.getElementById(activeId);
-                if (el) {
-                    el.focus();
-                    if(el.type === 'text' || el.tagName === 'TEXTAREA') {
-                        el.setSelectionRange(el.value.length, el.value.length);
-                    }
-                }
-            }
         }
 
         function displayToast() {
@@ -434,11 +591,8 @@
             setTimeout(() => toast.classList.remove('show'), 2000);
         }
 
-        window.openGuide = function() { document.getElementById('guide-modal').classList.remove('hidden'); }
-        window.closeGuide = function() { document.getElementById('guide-modal').classList.add('hidden'); }
-        window.confirmClear = function() { document.getElementById('modal-backdrop').classList.remove('hidden'); }
+        window.confirmClear = function() { if (!isGameMaster) return; document.getElementById('modal-backdrop').classList.remove('hidden'); }
         window.closeModal = function() { document.getElementById('modal-backdrop').classList.add('hidden'); }
-
         window.executeClear = function() {
             appState = [];
             diceLog = [];
@@ -446,12 +600,6 @@
             window.closeModal();
             window.addTrainer(); 
         }
-
-        // Initialize missing exports
-        window.importData = function() { alert("Import/Export is disabled in live multiplayer mode!"); }
-        window.exportData = function() { alert("Import/Export is disabled in live multiplayer mode!"); }
-        
-        // No init() call - we wait for the user to Host or Join the lobby!
     </script>
 </body>
 </html>
