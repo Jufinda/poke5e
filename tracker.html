@@ -1,0 +1,457 @@
+<!-- ... existing code ... -->
+    </header>
+    <div class="pokeball-line shadow-sm"><div class="pokeball-center shadow-sm"></div></div>
+
+    <!-- LOBBY UI (NEW) -->
+    <div id="lobby-screen" class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8 text-center border-t-8 border-red-600 mt-10">
+        <h2 class="text-2xl font-bold mb-6 text-gray-900">Multiplayer Lobby</h2>
+        <div class="space-y-4">
+            <button onclick="hostGame()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg shadow transition">
+                👑 Host New Game
+            </button>
+            <div class="relative flex py-2 items-center">
+                <div class="flex-grow border-t border-gray-300"></div>
+                <span class="flex-shrink-0 mx-4 text-gray-400 text-sm font-bold">OR</span>
+                <div class="flex-grow border-t border-gray-300"></div>
+            </div>
+            <div class="flex space-x-2">
+                <input type="text" id="join-code" placeholder="4-LETTER CODE" class="flex-1 border-2 border-gray-300 rounded-lg p-3 text-center uppercase font-bold text-xl focus:border-blue-500 focus:outline-none" maxlength="4">
+                <button onclick="joinGameBtn()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow transition">
+                    Join
+                </button>
+            </div>
+        </div>
+        <p id="lobby-error" class="text-red-500 mt-4 text-sm font-semibold hidden"></p>
+    </div>
+
+    <!-- Active Game Header -->
+    <div id="active-game-header" class="max-w-7xl mx-auto px-4 text-center mb-6 hidden">
+        <div class="inline-block bg-blue-100 border-2 border-blue-300 text-blue-800 font-bold px-6 py-2 rounded-full text-lg shadow-sm">
+            Room Code: <span id="display-room-code" class="tracking-widest text-xl"></span>
+        </div>
+    </div>
+
+    <main id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 hidden">
+        
+        <!-- Dice Roller Panel -->
+        <section class="bg-white rounded-2xl shadow-lg border border-gray-200 p-4 border-l-8 border-l-blue-500">
+            <h2 class="text-xl font-bold text-gray-900 mb-3 flex items-center">
+<!-- ... existing code ... -->
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-gray-900/90 backdrop-blur text-white px-6 py-3 rounded-full shadow-xl flex items-center space-x-2 z-50">
+        <span>💾</span>
+        <span class="font-semibold text-sm">Saved Live</span>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // === 1. PASTE YOUR FIREBASE CONFIG HERE ===
+        const firebaseConfig = {
+            apiKey: "AIzaSyCxpXcK4Hzu9lJs-xIYSBSvKrEfVqLJ9wQ",
+            authDomain: "poke5e-tracker.firebaseapp.com",
+            projectId: "poke5e-tracker",
+            storageBucket: "poke5e-tracker.firebasestorage.app",
+            messagingSenderId: "193075553454",
+            appId: "1:193075553454:web:0ab05cb9054007787db93f",
+            measurementId: "G-5QTK60CEZ9"
+        };
+        // ==========================================
+
+        let app, db;
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+        } catch(e) {
+            console.warn("Firebase config missing or invalid.");
+        }
+
+        let appState = [];
+        let diceLog = [];
+        let autoSaveTimeout = null;
+        let currentRoomCode = null;
+        let isSyncing = false; // Prevent feedback loops
+
+        const statusConditions = ["Normal", "Burned", "Paralyzed", "Poisoned", "Asleep", "Frozen", "Confused", "Flinch", "Badly Poisoned", "Fainted"];
+
+        // --- Multiplayer Lobby System ---
+        window.hostGame = async function() {
+            if (!db || !firebaseConfig.apiKey) { alert("Please paste your firebaseConfig in the code first!"); return; }
+            
+            // Generate 4 letter code
+            const code = Math.random().toString(36).substring(2, 6).toUpperCase();
+            
+            // Initialize empty room
+            await setDoc(doc(db, "rooms", code), { trainers: [], diceLog: [] });
+            
+            joinRoom(code);
+        }
+
+        window.joinGameBtn = function() {
+            const code = document.getElementById('join-code').value.toUpperCase();
+            if (code.length === 4) joinRoom(code);
+        }
+
+        async function joinRoom(code) {
+            if (!db || !firebaseConfig.apiKey) { alert("Please paste your firebaseConfig in the code first!"); return; }
+            const errorEl = document.getElementById('lobby-error');
+            
+            try {
+                const roomRef = doc(db, "rooms", code);
+                const roomSnap = await getDoc(roomRef);
+                
+                if (roomSnap.exists()) {
+                    currentRoomCode = code;
+                    document.getElementById('lobby-screen').classList.add('hidden');
+                    document.getElementById('active-game-header').classList.remove('hidden');
+                    document.getElementById('main-content').classList.remove('hidden');
+                    document.getElementById('display-room-code').innerText = code;
+                    
+                    // Listen for live updates
+                    onSnapshot(roomRef, (snapshot) => {
+                        if (snapshot.exists()) {
+                            isSyncing = true;
+                            appState = snapshot.data().trainers || [];
+                            diceLog = snapshot.data().diceLog || [];
+                            render();
+                            renderDiceLog();
+                            setTimeout(() => isSyncing = false, 100);
+                        }
+                    });
+                    
+                    setupEventListeners(); // Start listening to inputs once in a game
+                } else {
+                    errorEl.innerText = "Room not found!";
+                    errorEl.classList.remove('hidden');
+                }
+            } catch(e) {
+                console.error(e);
+                errorEl.innerText = "Database error. Make sure Firestore is in Test Mode.";
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        function saveData(silent = false) {
+            if (!currentRoomCode || isSyncing) return; // Only save if we made the change
+            setDoc(doc(db, "rooms", currentRoomCode), { trainers: appState, diceLog: diceLog });
+            if (!silent) displayToast();
+        }
+
+        function debouncedSave() {
+            clearTimeout(autoSaveTimeout);
+            autoSaveTimeout = setTimeout(() => saveData(true), 600);
+        }
+
+        // --- Data Models ---
+        function getNewTrainer() {
+            return {
+                id: 't_' + Math.random().toString(36).substr(2, 9),
+                name: '', level: 1, path: '', hpCurr: 10, hpMax: 10, ac: 10, money: 0,
+                stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+                inventory: '',
+                pokemon: []
+            };
+        }
+
+        function getNewPokemon() {
+            return {
+                id: 'p_' + Math.random().toString(36).substr(2, 9),
+                species: '', level: 1, hpCurr: 10, hpMax: 10, ac: 10, bond: 1, status: 'Normal',
+                moves: [
+                    { name: '', ppCurr: 0, ppMax: 0 },
+                    { name: '', ppCurr: 0, ppMax: 0 },
+                    { name: '', ppCurr: 0, ppMax: 0 },
+                    { name: '', ppCurr: 0, ppMax: 0 }
+                ]
+            };
+        }
+
+        // --- Actions (Exported to Window) ---
+        window.addTrainer = function() { appState.push(getNewTrainer()); saveData(true); render(); }
+        window.removeTrainer = function(tIndex) { appState.splice(tIndex, 1); saveData(true); render(); }
+        window.addPokemon = function(tIndex) { appState[tIndex].pokemon.push(getNewPokemon()); saveData(true); render(); }
+        window.removePokemon = function(tIndex, pIndex) { appState[tIndex].pokemon.splice(pIndex, 1); saveData(true); render(); }
+
+        window.adjustHP = function(tIndex, pIndex, amount) {
+            if (pIndex === null) {
+                appState[tIndex].hpCurr = Math.max(0, (parseInt(appState[tIndex].hpCurr) || 0) + amount);
+                document.getElementById(`t-${tIndex}-hp`).value = appState[tIndex].hpCurr;
+            } else {
+                appState[tIndex].pokemon[pIndex].hpCurr = Math.max(0, (parseInt(appState[tIndex].pokemon[pIndex].hpCurr) || 0) + amount);
+                document.getElementById(`p-${tIndex}-${pIndex}-hp`).value = appState[tIndex].pokemon[pIndex].hpCurr;
+            }
+            debouncedSave();
+        }
+
+        window.adjustPP = function(tIndex, pIndex, mIndex, amount) {
+            let curr = parseInt(appState[tIndex].pokemon[pIndex].moves[mIndex].ppCurr) || 0;
+            appState[tIndex].pokemon[pIndex].moves[mIndex].ppCurr = Math.max(0, curr + amount);
+            document.getElementById(`pp-${tIndex}-${pIndex}-${mIndex}`).value = appState[tIndex].pokemon[pIndex].moves[mIndex].ppCurr;
+            debouncedSave();
+        }
+
+        // --- Dice Roller ---
+        window.rollDice = function(sides) {
+            const modInput = document.getElementById('dice-mod');
+            const mod = parseInt(modInput.value) || 0;
+            const roll = Math.floor(Math.random() * sides) + 1;
+            const total = roll + mod;
+            
+            const modString = mod === 0 ? '' : (mod > 0 ? ` + ${mod}` : ` - ${Math.abs(mod)}`);
+            const entry = `<span class="text-blue-600 font-bold">[d${sides}]</span> Rolled ${roll}${modString} = <span class="font-bold text-gray-900">${total}</span>`;
+            
+            diceLog.push(entry);
+            if(diceLog.length > 20) diceLog.shift();
+            saveData(true);
+        }
+
+        window.clearDiceLog = function() {
+            diceLog = [];
+            saveData(true);
+        }
+
+        function renderDiceLog() {
+            const logEl = document.getElementById('dice-log');
+            if (diceLog.length === 0) {
+                logEl.innerHTML = '<li class="text-gray-400 italic">Roll history will appear here...</li>';
+                return;
+            }
+            logEl.innerHTML = diceLog.map(log => `<li>${log}</li>`).reverse().join('');
+        }
+
+        // --- Event Delegation for Inputs ---
+        function setupEventListeners() {
+            document.getElementById('app').addEventListener('change', (e) => {
+                const target = e.target;
+                if (!target.dataset.field) return;
+
+                const { tindex, pindex, mindex, field, type } = target.dataset;
+                const value = target.type === 'number' ? Number(target.value) : target.value;
+
+                if (mindex !== undefined) {
+                    appState[tindex].pokemon[pindex].moves[mindex][field] = value;
+                } else if (pindex !== undefined) {
+                    appState[tindex].pokemon[pindex][field] = value;
+                } else if (type === 'stat') {
+                    appState[tindex].stats[field] = value;
+                } else {
+                    appState[tindex][field] = value;
+                }
+                debouncedSave();
+            });
+        }
+
+        // --- Rendering ---
+        function render() {
+            const activeElement = document.activeElement;
+            const activeId = activeElement ? activeElement.id : null;
+
+            const app = document.getElementById('app');
+            app.innerHTML = '';
+            
+            if (appState.length === 0) {
+                app.innerHTML = `<div class="text-center text-gray-500 py-12">No trainers. Click "+ Add Trainer" to start.</div>`;
+                return;
+            }
+
+            appState.forEach((trainer, tIndex) => {
+                const trainerEl = document.createElement('section');
+                trainerEl.className = "bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden mb-10";
+                
+                let pokemonHtml = trainer.pokemon.map((poke, pIndex) => {
+                    const statusOptions = statusConditions.map(status => 
+                        `<option value="${status}" ${poke.status === status ? 'selected' : ''}>${status}</option>`
+                    ).join('');
+
+                    let movesHtml = poke.moves.map((move, mIndex) => `
+                        <div class="flex items-center gap-1 mb-1">
+                            <input type="text" id="m-n-${tIndex}-${pIndex}-${mIndex}" data-tindex="${tIndex}" data-pindex="${pIndex}" data-mindex="${mIndex}" data-field="name" value="${move.name}" placeholder="Move ${mIndex+1}" class="flex-1 border border-gray-300 rounded p-1 text-xs focus:border-red-500 focus:outline-none">
+                            <button onclick="adjustPP(${tIndex}, ${pIndex}, ${mIndex}, -1)" class="bg-gray-200 hover:bg-gray-300 w-5 h-5 rounded text-xs font-bold">-</button>
+                            <input type="number" id="pp-${tIndex}-${pIndex}-${mIndex}" data-tindex="${tIndex}" data-pindex="${pIndex}" data-mindex="${mIndex}" data-field="ppCurr" value="${move.ppCurr}" class="w-8 text-center border border-gray-300 rounded p-1 text-xs focus:outline-none">
+                            <span class="text-xs text-gray-500">/</span>
+                            <input type="number" id="ppm-${tIndex}-${pIndex}-${mIndex}" data-tindex="${tIndex}" data-pindex="${pIndex}" data-mindex="${mIndex}" data-field="ppMax" value="${move.ppMax}" class="w-8 text-center border border-gray-300 rounded p-1 text-xs text-gray-500 focus:outline-none">
+                            <button onclick="adjustPP(${tIndex}, ${pIndex}, ${mIndex}, 1)" class="bg-gray-200 hover:bg-gray-300 w-5 h-5 rounded text-xs font-bold">+</button>
+                        </div>
+                    `).join('');
+
+                    return `
+                    <div class="bg-gray-50 rounded-xl border border-gray-200 p-3 relative">
+                        <button onclick="removePokemon(${tIndex}, ${pIndex})" class="absolute top-2 right-2 text-gray-400 hover:text-red-500 transition-colors" title="Remove Pokémon">✖</button>
+                        
+                        <div class="grid grid-cols-2 gap-2 mb-2 pr-6">
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">Species/Nick</label>
+                                <input type="text" id="p-s-${tIndex}-${pIndex}" data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="species" value="${poke.species}" placeholder="Pikachu" class="w-full border border-gray-300 rounded p-1 text-sm focus:border-red-500 focus:outline-none">
+                            </div>
+                            <div class="flex gap-2">
+                                <div class="w-1/2">
+                                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">Lvl</label>
+                                    <input type="number" id="p-l-${tIndex}-${pIndex}" data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="level" value="${poke.level}" class="w-full border border-gray-300 rounded p-1 text-sm text-center focus:border-red-500 focus:outline-none">
+                                </div>
+                                <div class="w-1/2">
+                                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">Bond</label>
+                                    <input type="number" id="p-b-${tIndex}-${pIndex}" data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="bond" value="${poke.bond}" class="w-full border border-gray-300 rounded p-1 text-sm text-center focus:border-red-500 focus:outline-none">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2 mb-2">
+                            <div class="col-span-2">
+                                <label class="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">HP</label>
+                                <div class="flex items-center space-x-1">
+                                    <button onclick="adjustHP(${tIndex}, ${pIndex}, -1)" class="bg-red-100 text-red-700 hover:bg-red-200 w-6 h-6 rounded text-sm font-bold flex items-center justify-center">-</button>
+                                    <input type="number" id="p-${tIndex}-${pIndex}-hp" data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="hpCurr" value="${poke.hpCurr}" class="w-12 text-center border border-gray-300 rounded p-1 text-sm font-bold focus:outline-none">
+                                    <span class="text-gray-400 font-bold text-xs">/</span>
+                                    <input type="number" id="p-${tIndex}-${pIndex}-hpm" data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="hpMax" value="${poke.hpMax}" class="w-12 text-center border border-gray-300 rounded p-1 text-sm text-gray-500 focus:outline-none">
+                                    <button onclick="adjustHP(${tIndex}, ${pIndex}, 1)" class="bg-green-100 text-green-700 hover:bg-green-200 w-6 h-6 rounded text-sm font-bold flex items-center justify-center">+</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">AC</label>
+                                <input type="number" id="p-a-${tIndex}-${pIndex}" data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="ac" value="${poke.ac}" class="w-full border border-gray-300 rounded p-1 text-sm text-center focus:outline-none">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">Status</label>
+                            <select id="p-st-${tIndex}-${pIndex}" data-tindex="${tIndex}" data-pindex="${pIndex}" data-field="status" class="w-full border border-gray-300 rounded p-1 text-sm focus:border-red-500 focus:outline-none bg-white">
+                                ${statusOptions}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Moves & PP</label>
+                            ${movesHtml}
+                        </div>
+                    </div>`;
+                }).join('');
+
+                trainerEl.innerHTML = `
+                    <div class="bg-gray-800 text-white px-6 py-3 flex justify-between items-center border-t-8 border-t-red-600">
+                        <div class="flex items-center space-x-2">
+                            <span class="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">TRAINER</span>
+                        </div>
+                        <button onclick="removeTrainer(${tIndex})" class="text-gray-400 hover:text-red-400 text-sm font-semibold transition-colors">✖ Remove Trainer</button>
+                    </div>
+                    
+                    <div class="p-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        <div class="lg:col-span-5 space-y-4">
+                            <div class="flex gap-4">
+                                <div class="flex-1">
+                                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Trainer Name</label>
+                                    <input type="text" id="t-n-${tIndex}" data-tindex="${tIndex}" data-field="name" value="${trainer.name}" class="w-full border-2 border-gray-200 rounded-lg p-2 font-semibold text-lg focus:border-red-500 focus:outline-none" placeholder="Red">
+                                </div>
+                                <div class="w-24">
+                                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Level</label>
+                                    <input type="number" id="t-l-${tIndex}" data-tindex="${tIndex}" data-field="level" value="${trainer.level}" class="w-full border-2 border-gray-200 rounded-lg p-2 text-center focus:border-red-500 focus:outline-none">
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Path/Class</label>
+                                    <input type="text" id="t-p-${tIndex}" data-tindex="${tIndex}" data-field="path" value="${trainer.path}" class="w-full border-2 border-gray-200 rounded-lg p-2 focus:border-red-500 focus:outline-none" placeholder="Ace Trainer">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Poké Dollars (₽)</label>
+                                    <input type="number" id="t-m-${tIndex}" data-tindex="${tIndex}" data-field="money" value="${trainer.money}" class="w-full border-2 border-gray-200 rounded-lg p-2 focus:border-red-500 focus:outline-none">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Trainer HP</label>
+                                    <div class="flex items-center space-x-1">
+                                        <button onclick="adjustHP(${tIndex}, null, -1)" class="bg-red-100 text-red-700 hover:bg-red-200 w-8 h-8 rounded-lg font-bold flex items-center justify-center">-</button>
+                                        <input type="number" id="t-${tIndex}-hp" data-tindex="${tIndex}" data-field="hpCurr" value="${trainer.hpCurr}" class="w-14 text-center border-2 border-gray-200 rounded-lg p-1.5 font-bold focus:outline-none">
+                                        <span class="text-gray-400 font-bold">/</span>
+                                        <input type="number" id="t-${tIndex}-hpm" data-tindex="${tIndex}" data-field="hpMax" value="${trainer.hpMax}" class="w-14 text-center border-2 border-gray-200 rounded-lg p-1.5 text-gray-500 focus:outline-none">
+                                        <button onclick="adjustHP(${tIndex}, null, 1)" class="bg-green-100 text-green-700 hover:bg-green-200 w-8 h-8 rounded-lg font-bold flex items-center justify-center">+</button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Armor Class</label>
+                                    <input type="number" id="t-a-${tIndex}" data-tindex="${tIndex}" data-field="ac" value="${trainer.ac}" class="w-20 border-2 border-gray-200 rounded-lg p-1.5 text-center focus:outline-none">
+                                </div>
+                            </div>
+
+                            <!-- Ability Scores -->
+                            <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 text-center">Ability Scores</label>
+                                <div class="grid grid-cols-6 gap-2">
+                                    ${['str', 'dex', 'con', 'int', 'wis', 'cha'].map(stat => `
+                                        <div class="text-center">
+                                            <label class="block text-[10px] font-bold text-gray-600 uppercase">${stat}</label>
+                                            <input type="number" id="t-st-${tIndex}-${stat}" data-tindex="${tIndex}" data-type="stat" data-field="${stat}" value="${trainer.stats[stat]}" class="w-full border border-gray-300 rounded p-1 text-center text-sm font-semibold focus:border-red-500 focus:outline-none">
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Inventory / Notes</label>
+                                <textarea id="t-inv-${tIndex}" data-tindex="${tIndex}" data-field="inventory" class="w-full h-32 border-2 border-gray-200 rounded-lg p-2 focus:border-red-500 focus:outline-none resize-none text-sm">${trainer.inventory}</textarea>
+                            </div>
+                        </div>
+
+                        <div class="lg:col-span-7 bg-gray-100 rounded-xl p-4 border border-gray-200">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-bold text-gray-800 flex items-center">
+                                    Pokémon Party (${trainer.pokemon.length}/6)
+                                </h3>
+                                ${trainer.pokemon.length < 6 ? `
+                                <button onclick="addPokemon(${tIndex})" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors shadow-sm">
+                                    + Add Pokémon
+                                </button>
+                                ` : `<span class="text-xs font-bold text-red-500 uppercase bg-red-100 px-2 py-1 rounded">Party Full</span>`}
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                ${pokemonHtml}
+                                ${trainer.pokemon.length === 0 ? `<div class="col-span-full text-center text-gray-400 py-6 italic text-sm">No Pokémon in party. Add one to get started!</div>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                app.appendChild(trainerEl);
+            });
+
+            if (activeId) {
+                const el = document.getElementById(activeId);
+                if (el) {
+                    el.focus();
+                    if(el.type === 'text' || el.tagName === 'TEXTAREA') {
+                        el.setSelectionRange(el.value.length, el.value.length);
+                    }
+                }
+            }
+        }
+
+        function displayToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
+        window.openGuide = function() { document.getElementById('guide-modal').classList.remove('hidden'); }
+        window.closeGuide = function() { document.getElementById('guide-modal').classList.add('hidden'); }
+        window.confirmClear = function() { document.getElementById('modal-backdrop').classList.remove('hidden'); }
+        window.closeModal = function() { document.getElementById('modal-backdrop').classList.add('hidden'); }
+
+        window.executeClear = function() {
+            appState = [];
+            diceLog = [];
+            saveData(true);
+            window.closeModal();
+            window.addTrainer(); 
+        }
+
+        // Initialize missing exports
+        window.importData = function() { alert("Import/Export is disabled in live multiplayer mode!"); }
+        window.exportData = function() { alert("Import/Export is disabled in live multiplayer mode!"); }
+        
+        // No init() call - we wait for the user to Host or Join the lobby!
+    </script>
+</body>
+</html>
